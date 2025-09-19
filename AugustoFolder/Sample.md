@@ -1,2 +1,2 @@
 Sample File
-![Alt text](./AugustoFolder/sassycat.jpg)
+![Alt text](AugustoFolder/sassycat.jpg)
