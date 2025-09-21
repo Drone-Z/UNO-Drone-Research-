@@ -1,1 +1,12 @@
-
+From 18th August I started to read "Drift with Devil" research paper
+I learned how to select a good research paper by seeing related topics match with abstract, the number of citations and jurnal published platform
+Then I learned how to use "connected papers" website given by Dr. Peng Jiang and found two intersting papers related to UAV secutiy.
+I read "Road profiling estimation using a 3D sensor and intelligent vehicles" and took a brief concept on the paper name "ZTA of Military UAV security system"
+I got paper from OSU regarding RDAC and read that paper and started focusing on noise reduction procedure for UAV.
+I started working with sound denoisng methods and implemented a code in google colab demonstarting the sound denoisng using spectral gate algorithm
+I understood the code and I searched for connected graphs website for related papers and found "Wang Deep learning assisted  2022 Accepted" paper which is was related work with UAV sound denoising.
+I was not knowing the strategies of reading a paper and I consulted with Dr. Peng Jiang regaring this matter and he gudied me how I can proceed to read a paper.
+I started reading paper and first I should know about digital sound preocessing and I started with FFT.
+I took a clear knowledge of FT, FFT and implemeted a python code to understand with different audio files downloaded from internet.
+After FFT I learned STFT and in same manner I did python code to understand how this STFT will work.
+Then I learned LPF and filtered sound after 2500Hz. This also I visualized in python for better undertsand.
