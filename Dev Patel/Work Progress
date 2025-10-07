@@ -1,1 +1,3 @@
-
+I've started reading several research papers (which I uploaded to the paper folder) and over the past week I’ve focused on adversarial attacks. 
+I began by implementing the FGSM attack on a CNN classifier using the MNIST dataset. 
+For future work I plan to deepen my understanding of CNN architectures and FGSM mechanics, and then extend my experiments to CIFAR-10.
