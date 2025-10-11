@@ -10,3 +10,22 @@ I started reading paper and first I should know about digital sound preocessing 
 I took a clear knowledge of FT, FFT and implemeted a python code to understand with different audio files downloaded from internet.
 After FFT I learned STFT and in same manner I did python code to understand how this STFT will work.
 Then I learned LPF and filtered sound after 2500Hz. This also I visualized in python for better undertsand.
+In the mean time I started writing a proposal for GRACA 2025 application.
+After approval from Dr. Peng Jiang I submitted our proposal for GRACA2025.
+I learned about the band pass filter.
+As like same way I implemented a code in python for BPF to filter a specific range of frequency.
+After that now the step we came to collect different datasets of valid gunshot audio files.
+I searched and found URBANSOUND8K (https://urbansounddataset.weebly.com/urbansound8k.html) and got many gunshot audio files and they published their paper so it was a valid source of audio files
+But the main problem with URBANSOUND8K was there was no label of guns in their gunshot audio so we were unable to classify the guns by their gunshot audio.
+So now we focused to search audio files with labels an find some repository to classify the gunshots.
+I searched and found only one useful repository and another repository that used for gunshot detection in gamming environment which will not be useful for us.
+So first I downloaded the gunshot audio files with gunlabels.
+This audio files was verified becuase it was a NIJ funded project and they have their publications as well.
+The gunshot audio file link is: https://cadreforensics.com/audio/
+I downloaded the repository and started to run the code in my computer and analyze the code as well.
+I learned about anaconda nevigator and started to create a virtual environment in my computer to run the repository.
+After clearing all the errors in code and environment I run the repository code.
+In first step it generated the waveform.h5 file after scanning all the files from training datasets.
+I tried to train the CNN in my laptop but as I do not have GPU it took 20 hours for 1,640 iterations outof 5,000 iteration.
+So I started to configure ASTRA lab ubintu server for the repository.
+I transfered all the data in the server. VSCode was installed by Dev and now I will install and create the conda environment in ubuntu server on my user account.
