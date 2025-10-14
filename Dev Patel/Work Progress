@@ -1,3 +1,8 @@
 I've started reading several research papers (which I uploaded to the paper folder) and over the past week I’ve focused on adversarial attacks. 
 I began by implementing the FGSM attack on a CNN classifier using the MNIST dataset. 
 For future work I plan to deepen my understanding of CNN architectures and FGSM mechanics, and then extend my experiments to CIFAR-10.
+
+#10/14/2025
+
+I implemented the FGSM adversarial attack on a CNN trained on the CIFAR-10 dataset, gaining a solid understanding of the attack mechanics and end-to-end implementation (data pipeline, perturbation generation, and evaluation). 
+As next steps, I will (1) extend the evaluation to the PGD attack on the same CNN, and (2) study model sensitivity by testing additional architectures (e.g., VGG16) to compare robustness and analyze how performance and attack success vary across models.
