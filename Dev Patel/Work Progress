@@ -14,3 +14,8 @@ I have completed the first step by implementing PGD attacks on the same CNN mode
 I am now comparing both attacks to analyze their differences and impacts on model performance. 
 In parallel, I’ve begun drafting a report based on the results and datasets generated from these FGSM and PGD experiments. 
 For the next phase, I will focus on deepening my understanding of adversarial attacks.
+
+#10/27/2025
+
+I am focusing on exploring model and method for pothole detection and then attack on it.
+meanwhile i am also focusing on stregthen my knowledge in Segmentation and classification using Machine learning models.
