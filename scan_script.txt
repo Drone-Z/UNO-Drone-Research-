@@ -1,0 +1,1 @@
+sudo python3 capture_opendrone_id.py -i wlan0mon --json --output packets.json
