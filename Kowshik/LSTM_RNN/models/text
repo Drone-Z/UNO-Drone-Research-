@@ -1,1 +1,2 @@
-
+.pth file can be used as pretrain model.
+This file is generated after 1000 epoch with 90% validation accuracy
