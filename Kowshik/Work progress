@@ -27,5 +27,13 @@ I learned about anaconda nevigator and started to create a virtual environment i
 After clearing all the errors in code and environment I run the repository code.
 In first step it generated the waveform.h5 file after scanning all the files from training datasets.
 I tried to train the CNN in my laptop but as I do not have GPU it took 20 hours for 1,640 iterations outof 5,000 iteration.
-So I started to configure ASTRA lab ubintu server for the repository.
+So I started to configure ASTRA lab ubuntu server for the repository.
 I transfered all the data in the server. VSCode was installed by Dev and now I will install and create the conda environment in ubuntu server on my user account.
+I prepared for the weekly presentation for tuesday.
+I prepared sildes for meeting with Dr. Li, OSU and joined the meeting.
+I started to learn LSTM_RNN to analyze the sequential data of differnt RPMs provided by OSU.
+I went for conference and workshop on UAV application in UNR, Reno with Dr. Jiang and Augusto.
+After coming from workshop I started work for C-BYTES competition. I prepared poster and quick share presentation with the help of Dr. Jiang.
+I participated on C-BYTES competition on Thrusday (Nov 20).
+I have created the environment on our ubuntu server to run RNN with GPU.
+I did LSTM_RNN with 1000 epoch and got 90% accuracy for the model.
