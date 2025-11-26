@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_lstm_rpm.py",
+            "cwd": "${workspaceFolder}",
+            "args":["--data_dir", "./Datasets",
+            "--window_len", "256",
+            "--stride", "64",
+            "--hidden", "128",
+            "--layers", "2",
+            "--epochs", "2",
+            "--batch", "64",
+            "--lr", "3e-3",
+            "--cm_dir", "./metrics/cm",
+            "--curve_dir", "./metrics/curves",
+            "--dump_inputs_dir", "./debug_inputs",
+            "--dump_plots",
+            "--dump_max_batches", "1"],
+            "console": "integratedTerminal"
+        }
+    ]
+}

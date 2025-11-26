@@ -1,0 +1,9 @@
+python train_lstm_rpm.py --data_dir ./Datasets --window_len 256 --stride 64 --hidden 128 --layers 2 --epochs 40 --batch 64 --lr 3e-3 --cm_dir .\metrics\cm --curve_dir .\metrics\curves --dump_inputs_dir ./debug_inputs --dump_plots --dump_max_batches 1
+
+python lstm_rpm.py --data_dir ./Datasets --window_len 128 --stride 64 --hidden 128 --layers 2 --epochs 40 --batch 32 --lr 3e-3 --cm_dir .\metrics\cm --curve_dir .\metrics\curves --dump_inputs_dir ./debug_inputs --dump_plots --dump_max_batches 1 --device cuda
+
+
+Ubuntu
+--------
+python lstm_rpm.py --data_dir ./Datasets --window_len 50 --stride 25 --hidden 128 --layers 2 --epochs 1000 --batch 32 --lr 3e-3 --cm_dir ./metrics/cm --curve_dir ./metrics/curves --dump_inputs_dir ./debug_inputs --dump_plots --dump_max_batches 1 --device cuda
+
