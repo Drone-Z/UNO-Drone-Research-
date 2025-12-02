@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""
+Still need to improve.
+Passively captures 802.11 Wi-Fi packets with clean filtering, deduplication,
+async channel hopping, and structured JSON logging.
+"""
+
+import json
+import subprocess
+import argparse
+import logging
+import time
+from datetime import datetime
+from typing import Optional, List, Dict
+
+from scapy.all import sniff, RadioTap, Dot11, Dot11Beacon, Dot11ProbeReq, Dot11ProbeResp, Dot11Elt
+
+# Configure logging for research traceability
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger(__name__)
+
+# -------- Research filters (configurable) --------
+FILTER_MAC = "AA:BB:CC:DD:EE:FF"       # target transmitter MAC (optional)
+FILTER_SSID: Optional[str] = None       # e.g. "CampusNet_Research"
+SIGNATURE_BYTES = b"\xAA\x11\x55"       # payload signature to identify spoofer packets
+
+# -------- Channel scanning config --------
+CHANNEL_SWEEP = True                   # enable channel hopping
+CHANNEL_LIST: List[int] = list(range(1, 12))  # channels 1-11 (2.4GHz)
+
+
+def run_cmd(cmd: List[str], timeout=5) -> Optional[str]:
+    """
+    Runs a system command safely and returns stdout if successful.
+    Helps avoid hanging the adapter or breaking experiment runs.
+    """
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=timeout)
+        return result.stdout.strip()
+    except Exception as e:
+        LOG.error(f"Command failed: {' '.join(cmd)} | Error: {e}")
+        return None
+
+
+def set_iface_mode(device: str, mode: str) -> bool:
+    """
+    Switch Wi-Fi device into monitor or managed mode safely.
+    Verifies change and avoids system-only calls.
+    """
+    LOG.info(f"Switching '{device}' to {mode} mode...")
+    run_cmd(["ip", "link", "set", device, "down"])
+
+    if mode == "monitor":
+        run_cmd(["iwconfig", device, "mode", "monitor"])
+    else:
+        run_cmd(["iw", "dev", device, "set", "type", "managed"])
+
+    run_cmd(["ip", "link", "set", device, "up"])
+
+    verify = run_cmd(["iw", "dev", device, "info"])
+    return bool(verify and f"type {mode}" in verify)
+
+
+class ChannelHopper:
+    """
+    Research utility to sweep Wi-Fi channels continuously in the background.
+    Ensures full-spectrum environmental sampling as the drone moves.
+    """
+    def __init__(self, interface: str, channels: List[int], delay=1):
+        self.interface = interface
+        self.channels = channels
+        self.delay = delay
+    
+    def start(self):
+        while True:
+            for ch in self.channels:
+                run_cmd(["iwconfig", self.interface, "channel", str(ch)])
+                LOG.info(f"[Channel] {ch} @ {datetime.now().strftime('%H:%M:%S')}")
+                time.sleep(self.delay)
+
+
+class WiFiSnifferResearch:
+    """
+    Main sniffer class. Passively captures Wi-Fi frames and keeps
+    research-only metadata. Can run alongside other drone processes.
+    """
+    def __init__(self, interface: str, ssid: Optional[str], mac: Optional[str], signature: Optional[bytes]):
+        self.interface = interface
+        self.filter_ssid = ssid
+        self.filter_mac = mac
+        self.signature = signature
+        self.networks: Dict[str, Dict] = {}  # Deduplication table
+
+    def _update_network(self, bssid: str, rssi: Optional[int], ssid: Optional[str]):
+        """
+        Keep a single record per unique AP/device for research purity.
+        Track signal strength history, and first/last seen times.
+        """
+        now = datetime.now().isoformat()
+
+        if bssid not in self.networks:
+            self.networks[bssid] = {
+                "bssid": bssid,
+                "ssid": ssid,
+                "first_seen": now,
+                "last_seen": now,
+                "best_rssi": rssi,
+                "seen_count": 1
+            }
+        else:
+            rec = self.networks[bssid]
+            rec["last_seen"] = now
+            rec["seen_count"] += 1
+            if rssi and (not rec["best_rssi"] or rssi > rec["best_rssi"]):
+                rec["best_rssi"] = rssi
+
+    def packet_handler(self, pkt):
+        """
+        Evaluates packets step by step using research filters and records valid ones.
+        Deduplicates networks/devices and logs structured JSON to disk as dataset.
+        """
+        if not pkt.haslayer(Dot11):
+            LOG.debug("[Drop] Not Wi-Fi")
+            return
+        
+        ssid = None
+        if pkt.haslayer(Dot11Elt):
+            ssid = pkt[Dot11Elt].info.decode(errors="ignore")
+
+        src_mac = pkt.addr2
+        dst_mac = pkt.addr1
+        rssi = pkt.dBm_AntSignal if hasattr(pkt, "dBm_AntSignal") else None
+        
+        raw = bytes(pkt)
+
+        # MAC filter
+        if self.filter_mac and src_mac != self.filter_mac:
+            LOG.debug(f"[Drop-MAC] {src_mac}")
+            return
+
+        # SSID filter
+        if self.filter_ssid and ssid != self.filter_ssid:
+            LOG.debug(f"[Drop-SSID] {ssid}")
+            return
+
+        # Payload signature filter
+        if self.signature and self.signature not in raw:
+            LOG.debug("[Drop-Signature] Missing payload signature")
+            return
+
+        # Valid for research capture
+        LOG.info(f"[Accept] {src_mac} → {dst_mac} (RSSI={rssi})")
+        self._update_network(src_mac, rssi, ssid)
+
+        packet_record = {
+            "timestamp": datetime.now().isoformat(),
+            "src": src_mac,
+            "dst": dst_mac,
+            "frame_type": pkt.type,
+            "frame_subtype": pkt.subtype,
+            "ssid": ssid,
+            "rssi": rssi,
+            "raw_hex": raw.hex()
+        }
+
+        # Append JSON as line-delimited dataset
+        with open("research_wifi_dataset.json", "a") as f:
+            f.write(json.dumps(packet_record) + "\n")
+
+    def start(self):
+        """
+        Switch interface into monitor mode, launch channel hopper if enabled, and begin async sniffing.
+        The packet handler only records metadata, making it research safe for analytics.
+        """
+        if not set_iface_mode(self.interface, "monitor"):
+            LOG.error("Failed to enter monitor mode — check adapter/driver support")
+            return False
+        
+        if CHANNEL_SWEEP:
+            LOG.info("Launching background channel hopper thread...")
+            import threading
+            hopper = ChannelHopper(self.interface, CHANNEL_LIST)
+            thread = threading.Thread(target=hopper.start, daemon=True)
+            thread.start()
+
+        LOG.info("Starting async Wi-Fi capture...")
+        sniff(iface=self.interface, prn=self.packet_handler, store=False)
+        return True
+
+    def stop(self):
+        """
+        Restore interface to managed mode and optionally output collected AP/device summary.
+        """
+        set_iface_mode(self.interface, "managed")
+        LOG.info("Sniffing stopped. Wireless interface restored.")
+
+        # Dump summary table
+        LOG.info("\n=== Unique Networks Seen (Research Metadata Only) ===")
+        for rec in self.networks.values():
+            LOG.info(
+                f"{rec['bssid']} | SSID={rec['ssid']} | "
+                f"Best RSSI={rec['best_rssi']} | Seen {rec['seen_count']} times"
+            )
+        LOG.info("==================================================\n")
+
+
+def main():
+    """
+    Command-line entrypoint to run the sniffer for testing/field collection.
+    In real drone software, you'd import WiFiSnifferResearch instead.
+    """
+    parser = argparse.ArgumentParser(description="Research Wi-Fi Sniffer")
+    parser.add_argument("-i", "--iface", required=True, help="Wi-Fi interface")
+    parser.add_argument("--ssid", required=False, help="SSID filter")
+    parser.add_argument("--mac", required=False, help="MAC filter")
+    parser.add_argument("--sweep", action="store_true", help="Enable channel sweep")
+    args = parser.parse_args()
+
+    global CHANNEL_SWEEP
+    if args.sweep:
+        CHANNEL_SWEEP = True
+
+    sniffer = WiFiSnifferResearch(
+        interface=args.iface,
+        ssid=args.ssid or FILTER_SSID,
+        mac=args.mac or FILTER_MAC,
+        signature=SIGNATURE_BYTES
+    )
+
+    try:
+        sniffer.start()
+    except KeyboardInterrupt:
+        sniffer.stop()
+
+
+if __name__ == "__main__":
+    main()
