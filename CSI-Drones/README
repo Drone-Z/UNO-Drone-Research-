@@ -1,0 +1,5 @@
+This project investigates the use of Wi-Fi Channel State Information (CSI) as a passive sensing mechanism for the detection and characterization of unmanned aerial vehicles (UAVs). 
+By analyzing fine-grained variations in CSI caused by drone motion, rotor dynamics, and spatial interference with wireless signals, the system aims to identify the presence of drones 
+without requiring active RF transmission from the UAV itself. Beyond basic detection, the project explores whether distinctive CSI signatures can be leveraged to estimate the number of drones present 
+and to differentiate between drone types based on their physical and flight characteristics. Machine learning techniques are applied to extracted CSI features to enable classification and counting, 
+with the goal of demonstrating a low-cost, infrastructure-based approach to drone detection that is suitable for real-world environments and complements existing RF- and vision-based counter-UAS systems. 
