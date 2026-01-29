@@ -1,0 +1,254 @@
+#reads test1.txt (no drone) and test2.txt (drone)
+
+#parses CSI I/Q pairs
+
+#converts to amplitude
+
+#removes all-zero / null subcarrier pairs
+
+#computes per-packet variance and rolling-window variance
+
+#plots comparisons
+
+#(optional) shows a spectrogram to reveal propeller periodicity
+
+
+import re
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# -----------------------------
+# CONFIG
+# -----------------------------
+TEST1_PATH = "test1.txt"  # no drone
+TEST2_PATH = "test2.txt"  # drone
+
+# rolling window length in packets (adjust)
+ROLLING_WIN = 50
+
+# If your file begins with a header like "data", keep this True
+HAS_HEADER = True
+
+# -----------------------------
+# PARSING HELPERS
+# -----------------------------
+def read_csi_lines(path: str, has_header: bool = True):
+    """
+    Reads a txt file where each CSI packet is on its own line, like:
+      [I1,I2,...] or [I1,I1, I2, I2, ...] (we assume comma-separated ints)
+    Returns list of numpy arrays (int).
+    """
+    packets = []
+    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        lines = f.readlines()
+
+    if has_header and len(lines) > 0:
+        # drop header line (e.g., "data\n")
+        lines = lines[1:]
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Extract content within brackets if present
+        m = re.search(r"\[(.*)\]", line)
+        if not m:
+            continue
+
+        inside = m.group(1).strip()
+        if not inside:
+            continue
+
+        # split by comma and parse ints
+        try:
+            vals = np.array([int(x) for x in inside.split(",")], dtype=np.int16)
+        except ValueError:
+            continue
+
+        packets.append(vals)
+
+    return packets
+
+
+def iq_to_amplitude(iq: np.ndarray):
+    """
+    Given an array like [I1, Q1, I2, Q2, ...] return amplitude per subcarrier:
+      sqrt(I^2 + Q^2)
+    """
+    if len(iq) < 2:
+        return None
+    if len(iq) % 2 != 0:
+        # odd length -> drop last value
+        iq = iq[:-1]
+
+    I = iq[0::2].astype(np.float32)
+    Q = iq[1::2].astype(np.float32)
+    amp = np.sqrt(I * I + Q * Q)
+    return amp
+
+
+def drop_zero_subcarriers(iq: np.ndarray):
+    """
+    Removes subcarriers where BOTH I and Q are zero.
+    Keeps only (I,Q) pairs with not (I==0 and Q==0).
+    """
+    if len(iq) < 2:
+        return iq
+    if len(iq) % 2 != 0:
+        iq = iq[:-1]
+    I = iq[0::2]
+    Q = iq[1::2]
+    mask = ~((I == 0) & (Q == 0))
+    # Rebuild interleaved array
+    I2 = I[mask]
+    Q2 = Q[mask]
+    out = np.empty(I2.size * 2, dtype=iq.dtype)
+    out[0::2] = I2
+    out[1::2] = Q2
+    return out
+
+
+def extract_features(packets_iq: list[np.ndarray], label: str):
+    """
+    For each packet:
+      - remove all-zero IQ pairs
+      - convert to amplitude
+      - compute per-packet amp variance + amp mean + amp std
+    Returns a DataFrame with features and packet index.
+    """
+    rows = []
+    for idx, iq in enumerate(packets_iq):
+        iq2 = drop_zero_subcarriers(iq)
+        amp = iq_to_amplitude(iq2)
+        if amp is None or amp.size == 0:
+            continue
+
+        rows.append({
+            "label": label,
+            "pkt_idx": idx,
+            "n_subcarriers": int(amp.size),
+            "amp_mean": float(np.mean(amp)),
+            "amp_std": float(np.std(amp)),
+            "amp_var": float(np.var(amp)),
+            "amp_entropy": float(entropy_approx(amp)),
+        })
+
+    df = pd.DataFrame(rows).reset_index(drop=True)
+
+    # rolling stats over time (packet index)
+    df["amp_var_roll"] = df["amp_var"].rolling(ROLLING_WIN, min_periods=max(5, ROLLING_WIN // 5)).mean()
+    df["amp_std_roll"] = df["amp_std"].rolling(ROLLING_WIN, min_periods=max(5, ROLLING_WIN // 5)).mean()
+    df["amp_entropy_roll"] = df["amp_entropy"].rolling(ROLLING_WIN, min_periods=max(5, ROLLING_WIN // 5)).mean()
+
+    return df
+
+
+def entropy_approx(x: np.ndarray, bins: int = 30):
+    """
+    Quick entropy approximation for amplitude distribution in a packet.
+    Higher entropy -> more 'spread' / complexity.
+    """
+    if x.size == 0:
+        return np.nan
+    hist, _ = np.histogram(x, bins=bins, density=True)
+    p = hist[hist > 0]
+    return float(-np.sum(p * np.log2(p)))
+
+
+# -----------------------------
+# MAIN
+# -----------------------------
+def main():
+    # Read packets
+    p1 = read_csi_lines(TEST1_PATH, has_header=HAS_HEADER)
+    p2 = read_csi_lines(TEST2_PATH, has_header=HAS_HEADER)
+
+    print(f"Loaded packets: test1(no drone)={len(p1)}, test2(drone)={len(p2)}")
+
+    # Extract features
+    df1 = extract_features(p1, "no_drone")
+    df2 = extract_features(p2, "drone")
+
+    print("\nFeature rows after parsing:")
+    print(f"  no_drone rows={len(df1)}")
+    print(f"  drone rows   ={len(df2)}")
+
+    # Summary stats
+    def summarize(df, name):
+        return {
+            "dataset": name,
+            "amp_var_mean": df["amp_var"].mean(),
+            "amp_var_std": df["amp_var"].std(),
+            "amp_std_mean": df["amp_std"].mean(),
+            "amp_entropy_mean": df["amp_entropy"].mean(),
+        }
+
+    summary = pd.DataFrame([summarize(df1, "no_drone"), summarize(df2, "drone")])
+    print("\nSummary:")
+    print(summary.to_string(index=False))
+
+    # -----------------------------
+    # PLOTS: variance over time
+    # -----------------------------
+    plt.figure()
+    plt.plot(df1["pkt_idx"], df1["amp_var"], label="no_drone amp_var")
+    plt.plot(df2["pkt_idx"], df2["amp_var"], label="drone amp_var")
+    plt.title("Per-packet CSI amplitude variance (higher = more dynamic)")
+    plt.xlabel("Packet index")
+    plt.ylabel("Variance of amplitude across subcarriers")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # Rolling variance (smoother)
+    plt.figure()
+    plt.plot(df1["pkt_idx"], df1["amp_var_roll"], label=f"no_drone rolling({ROLLING_WIN})")
+    plt.plot(df2["pkt_idx"], df2["amp_var_roll"], label=f"drone rolling({ROLLING_WIN})")
+    plt.title(f"Rolling mean of CSI amplitude variance (window={ROLLING_WIN} packets)")
+    plt.xlabel("Packet index")
+    plt.ylabel("Rolling mean variance")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # Entropy comparison (often separates well)
+    plt.figure()
+    plt.plot(df1["pkt_idx"], df1["amp_entropy_roll"], label=f"no_drone entropy rolling({ROLLING_WIN})")
+    plt.plot(df2["pkt_idx"], df2["amp_entropy_roll"], label=f"drone entropy rolling({ROLLING_WIN})")
+    plt.title(f"Rolling entropy of CSI amplitude distribution (window={ROLLING_WIN} packets)")
+    plt.xlabel("Packet index")
+    plt.ylabel("Entropy (approx)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    # -----------------------------
+    # OPTIONAL: Spectrogram (micro-motion visibility)
+    # Uses a single scalar time series; here we use amp_var over time.
+    # -----------------------------
+    try:
+        from scipy.signal import spectrogram
+
+        # Build time series (aligned index axis)
+        x1 = df1["amp_var"].to_numpy()
+        x2 = df2["amp_var"].to_numpy()
+
+        # Spectrogram params (tune nperseg)
+        nperseg = min(256, max(64, len(x2) // 10))
+
+        f, t, Sxx = spectrogram(x2, nperseg=nperseg)
+        plt.figure()
+        plt.pcolormesh(t, f, 10 * np.log10(Sxx + 1e-12), shading="auto")
+        plt.title("Spectrogram of amp_var time series (drone) — look for periodic bands")
+        plt.xlabel("Time (spectrogram frames)")
+        plt.ylabel("Frequency (arb units)")
+        plt.tight_layout()
+        plt.show()
+
+    except ImportError:
+        print("\nscipy not installed; skipping spectrogram. (pip install scipy)")
+
+if __name__ == "__main__":
+    main()
