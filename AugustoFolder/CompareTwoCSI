@@ -1,0 +1,166 @@
+import ast
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from collections import Counter
+
+# ====== CONFIG ======
+NO_DRONE_CSV = r"csi_20260121_134803_Test1_point1.csv"
+DRONE_CSV    = r"csi_20260121_141550_Test2_point1.csv"  # <-- change to your drone file
+# ====================
+
+def infer_shape(n_complex: int):
+    # Common CSI subcarrier counts for ESP32 CSI
+    for nsc in (64, 56, 52, 48, 128):
+        if n_complex % nsc == 0:
+            nstreams = n_complex // nsc
+            if 1 <= nstreams <= 4:
+                return nstreams, nsc
+    return 1, n_complex
+
+def packet_to_amp_vector(data_str: str):
+    vals = np.array(ast.literal_eval(data_str), dtype=np.float32)
+    I = vals[0::2]
+    Q = vals[1::2]
+    csi = I + 1j * Q
+
+    nstreams, nsc = infer_shape(csi.size)
+    csi = csi.reshape(nstreams, nsc)
+
+    amp = np.abs(csi)          # (streams, subcarriers)
+    amp_sc = amp.mean(axis=0)  # average across streams -> (subcarriers,)
+    return amp_sc, nsc
+
+def load_csi_matrix(csv_path: str):
+    df = pd.read_csv(csv_path)
+
+    # time in seconds from start (if timestamp present)
+    if "local_timestamp" in df.columns:
+        t_raw = df["local_timestamp"].astype(np.float64).to_numpy()
+        t = (t_raw - t_raw[0]) / 1e6
+    else:
+        t = np.arange(len(df), dtype=np.float64)
+
+    # optional RSSI
+    rssi = df["rssi"].to_numpy() if "rssi" in df.columns else None
+
+    # diagnose raw CSI integer lengths
+    raw_lens = [len(ast.literal_eval(s)) for s in df["data"]]
+    print(f"\n[{csv_path}] Raw CSI int-length counts:", Counter(raw_lens))
+
+    amp_rows = []
+    nscs = []
+    for s in df["data"]:
+        amp_sc, nsc = packet_to_amp_vector(s)
+        amp_rows.append(amp_sc)
+        nscs.append(nsc)
+
+    # Keep only packets with the most common nsc (usually 64)
+    nsc_mode = Counter(nscs).most_common(1)[0][0]
+    keep = [i for i, nsc in enumerate(nscs) if nsc == nsc_mode]
+    dropped = len(df) - len(keep)
+    if dropped:
+        print(f"[{csv_path}] Dropping {dropped} packets not matching nsc={nsc_mode}.")
+
+    t = t[keep]
+    rssi = rssi[keep] if rssi is not None else None
+    amp_mat = np.stack([amp_rows[i] for i in keep], axis=0)  # (T, nsc_mode)
+
+    return t, rssi, amp_mat, nsc_mode
+
+def activity_score(amp_mat: np.ndarray):
+    """
+    Simple “disturbance” metric:
+    per packet std across subcarriers -> average over time.
+    Higher often means more motion/propeller-induced variation.
+    """
+    per_packet_std = amp_mat.std(axis=1)
+    return float(per_packet_std.mean()), per_packet_std
+
+def main():
+    t0, rssi0, A0, nsc0 = load_csi_matrix(NO_DRONE_CSV)
+    t1, rssi1, A1, nsc1 = load_csi_matrix(DRONE_CSV)
+
+    # If they differ, pick the smaller nsc and truncate both for fair comparison
+    nsc = min(nsc0, nsc1)
+    if nsc0 != nsc1:
+        print(f"\nNote: nsc differs ({nsc0} vs {nsc1}). Truncating both to nsc={nsc} for comparison.")
+        A0 = A0[:, :nsc]
+        A1 = A1[:, :nsc]
+
+    # Summary timelines
+    mean0, std0 = A0.mean(axis=1), A0.std(axis=1)
+    mean1, std1 = A1.mean(axis=1), A1.std(axis=1)
+
+    # Activity scores
+    score0, per_std0 = activity_score(A0)
+    score1, per_std1 = activity_score(A1)
+    print(f"\nActivity score (no-drone): {score0:.4f}")
+    print(f"Activity score (drone):    {score1:.4f}")
+    if score0 > 0:
+        print(f"Ratio (drone / no-drone):  {score1/score0:.2f}x")
+
+    # --- Plot RSSI overlay ---
+    if (rssi0 is not None) and (rssi1 is not None):
+        plt.figure()
+        plt.plot(t0, rssi0, label="No drone")
+        plt.plot(t1, rssi1, label="Drone", alpha=0.85)
+        plt.title("RSSI vs time (overlay)")
+        plt.xlabel("Time (s) from start")
+        plt.ylabel("RSSI (dBm)")
+        plt.legend()
+        plt.tight_layout()
+
+    # --- Plot mean amplitude overlay ---
+    plt.figure()
+    plt.plot(t0, mean0, label="No drone")
+    plt.plot(t1, mean1, label="Drone", alpha=0.85)
+    plt.title("Mean CSI amplitude vs time (overlay)")
+    plt.xlabel("Time (s) from start")
+    plt.ylabel("Mean amplitude (a.u.)")
+    plt.legend()
+    plt.tight_layout()
+
+    # --- Plot std amplitude overlay ---
+    plt.figure()
+    plt.plot(t0, std0, label="No drone")
+    plt.plot(t1, std1, label="Drone", alpha=0.85)
+    plt.title("CSI amplitude std vs time (overlay)")
+    plt.xlabel("Time (s) from start")
+    plt.ylabel("Std amplitude (a.u.)")
+    plt.legend()
+    plt.tight_layout()
+
+    # --- Activity (per-packet std) overlay ---
+    plt.figure()
+    plt.plot(t0, per_std0, label="No drone")
+    plt.plot(t1, per_std1, label="Drone", alpha=0.85)
+    plt.title("Activity signal (per-packet std across subcarriers)")
+    plt.xlabel("Time (s) from start")
+    plt.ylabel("Activity (a.u.)")
+    plt.legend()
+    plt.tight_layout()
+
+    # --- Heatmaps side-by-side (separate figures to keep it simple) ---
+    plt.figure()
+    plt.imshow(A0.T, aspect="auto", origin="lower",
+               extent=[t0[0], t0[-1], 0, nsc-1])
+    plt.title("No-drone heatmap: subcarrier vs time")
+    plt.xlabel("Time (s) from start")
+    plt.ylabel("Subcarrier index")
+    plt.colorbar(label="Amplitude")
+    plt.tight_layout()
+
+    plt.figure()
+    plt.imshow(A1.T, aspect="auto", origin="lower",
+               extent=[t1[0], t1[-1], 0, nsc-1])
+    plt.title("Drone heatmap: subcarrier vs time")
+    plt.xlabel("Time (s) from start")
+    plt.ylabel("Subcarrier index")
+    plt.colorbar(label="Amplitude")
+    plt.tight_layout()
+
+    plt.show()
+
+if __name__ == "__main__":
+    main()
