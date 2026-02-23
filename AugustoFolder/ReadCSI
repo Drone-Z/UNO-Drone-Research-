@@ -1,0 +1,101 @@
+import ast
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from collections import Counter
+
+CSV_PATH = r"csi_20260121_134803_Test1_point1.csv"  # change if needed
+
+def infer_shape(n_complex: int):
+    candidates = [64, 56, 52, 48, 128]
+    for nsc in candidates:
+        if n_complex % nsc == 0:
+            nstreams = n_complex // nsc
+            if 1 <= nstreams <= 4:
+                return nstreams, nsc
+    return 1, n_complex
+
+def csi_to_subcarrier_vector(data_str: str):
+    vals = np.array(ast.literal_eval(data_str), dtype=np.float32)
+
+    I = vals[0::2]
+    Q = vals[1::2]
+    csi = I + 1j * Q  # complex
+
+    nstreams, nsc = infer_shape(csi.size)
+    csi = csi.reshape(nstreams, nsc)
+
+    amp = np.abs(csi)              # (streams, subcarriers)
+    amp_sc = amp.mean(axis=0)      # (subcarriers,) <- FIXED size if nsc is same (often 64)
+    return amp_sc, nstreams, nsc
+
+def main():
+    df = pd.read_csv(CSV_PATH)
+
+    # time axis (seconds from start)
+    t_raw = df["local_timestamp"].astype(np.float64).to_numpy()
+    t = (t_raw - t_raw[0]) / 1e6
+    t_label = "Time (s) from start"
+
+    # quick diagnostic: CSI lengths
+    lens = [len(ast.literal_eval(s)) for s in df["data"]]
+    print("CSI integer-length counts:", Counter(lens))
+
+    # build time x subcarrier matrix (and track shapes)
+    amp_rows = []
+    streams = []
+    nscs = []
+
+    for s in df["data"]:
+        amp_sc, ns, nsc = csi_to_subcarrier_vector(s)
+        amp_rows.append(amp_sc)
+        streams.append(ns)
+        nscs.append(nsc)
+
+    # if there are multiple nsc values, keep only the most common nsc
+    nsc_mode = Counter(nscs).most_common(1)[0][0]
+    keep = [i for i, nsc in enumerate(nscs) if nsc == nsc_mode]
+
+    if len(keep) != len(df):
+        print(f"Dropping {len(df)-len(keep)} packets with nsc != {nsc_mode} to keep matrix consistent.")
+
+    t = t[keep]
+    rssi = df["rssi"].to_numpy()[keep] if "rssi" in df.columns else None
+    amp_mat = np.stack([amp_rows[i] for i in keep], axis=0)  # (T, nsc_mode)
+
+    amp_mean = amp_mat.mean(axis=1)
+    amp_std = amp_mat.std(axis=1)
+
+    # 1) RSSI timeline
+    if rssi is not None:
+        plt.figure()
+        plt.plot(t, rssi)
+        plt.title("RSSI vs time")
+        plt.xlabel(t_label)
+        plt.ylabel("RSSI (dBm)")
+        plt.tight_layout()
+
+    # 2) Mean/Std amplitude vs time
+    plt.figure()
+    plt.plot(t, amp_mean, label="Mean amplitude")
+    plt.plot(t, amp_std, label="Std amplitude", alpha=0.8)
+    plt.title("CSI amplitude summary vs time (averaged across streams)")
+    plt.xlabel(t_label)
+    plt.ylabel("Amplitude (a.u.)")
+    plt.legend()
+    plt.tight_layout()
+
+    # 3) Heatmap: time x subcarrier
+    plt.figure()
+    plt.imshow(amp_mat.T, aspect="auto", origin="lower",
+               extent=[t[0], t[-1], 0, amp_mat.shape[1]-1])
+    plt.title("CSI amplitude heatmap: subcarrier vs time")
+    plt.xlabel(t_label)
+    plt.ylabel("Subcarrier index")
+    plt.colorbar(label="Amplitude")
+    plt.tight_layout()
+
+    plt.show()
+
+if __name__ == "__main__":
+    main()
