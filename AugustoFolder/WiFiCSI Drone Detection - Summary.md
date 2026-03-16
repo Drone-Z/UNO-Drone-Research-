@@ -169,5 +169,86 @@ When ready, recommended progression:
 
 ---
 
+
+
+
+
+# Key Citations — WiFi CSI Drone Detection Project
+
+---
+
+## Peer-Reviewed Publications
+
+**[1]** I. Bisio, C. Garibotto, F. Lavagetto, A. Sciarrone, and S. Zappatore,
+"Blind Detection: Advanced Techniques for WiFi-Based Drone Surveillance,"
+*IEEE Transactions on Vehicular Technology*, vol. 68, no. 1, pp. 938–946, Jan. 2019.
+🔗 [IEEE Xplore](https://ieeexplore.ieee.org/document/8556480) | [DOI: 10.1109/TVT.2018.2884767](https://doi.org/10.1109/TVT.2018.2884767)
+
+---
+
+**[2]** Anonymous et al.,
+"Low-cost UAV detection via WiFi traffic analysis and machine learning,"
+*Scientific Reports (Nature Portfolio)*, 2023.
+*(Key finding: 99.93% detection probability when UAV streams video)*
+🔗 [Scientific Reports](https://www.nature.com/articles/s41598-023-47453-6)
+
+---
+
+**[3]** D. Wu, Y. Zeng, F. Zhang et al.,
+"WiFi CSI-based device-free sensing: from Fresnel zone model to CSI-ratio model,"
+*CCF Transactions on Pervasive Computing and Interaction*, vol. 4, pp. 88–102, 2022.
+🔗 [Springer](https://link.springer.com/article/10.1007/s42486-021-00077-z) | [DOI: 10.1007/s42486-021-00077-z](https://doi.org/10.1007/s42486-021-00077-z)
+
+---
+
+**[4]** J. Liu et al.,
+"Towards a Dynamic Fresnel Zone Model to WiFi-based Human Activity Recognition,"
+*Proceedings of the ACM on Interactive, Mobile, Wearable and Ubiquitous Technologies (IMWUT)*, vol. 7, no. 2, Article 65, Jun. 2023.
+🔗 [ACM Digital Library](https://dl.acm.org/doi/10.1145/3596258)
+
+---
+
+## Technical References *(Not Peer-Reviewed — Use as Supporting References Only)*
+
+**[5]** ⚠️ *Preprint — not peer-reviewed*
+X. Chen et al.,
+"WiMANS: A Benchmark Dataset for WiFi-based Multi-user Activity Sensing,"
+*arXiv preprint*, arXiv:2402.09430, 2024.
+*(Key finding: 1,000 pps standard packet rate for CSI sensing research)*
+🔗 [arXiv:2402.09430](https://arxiv.org/abs/2402.09430)
+
+---
+
+**[6]** ⚠️ *Preprint — not peer-reviewed*
+Anonymous et al.,
+"Optimal preprocessing of WiFi CSI for sensing applications,"
+*arXiv preprint*, arXiv:2307.12126, 2023.
+*(Key finding: gain correction reduces noise by 40%; phase correction improves SNR by 20%)*
+🔗 [arXiv:2307.12126](https://arxiv.org/abs/2307.12126)
+
+---
+
+## Official Documentation
+
+**[7]** Espressif Systems,
+"ESP-CSI: Applications based on Wi-Fi CSI (Channel State Information),"
+*GitHub Repository*, 2024.
+🔗 [GitHub Repository](https://github.com/espressif/esp-csi) | [Get-Started Example](https://github.com/espressif/esp-csi/tree/master/examples/get-started)
+
+---
+
+## Notes on Citation Usage
+
+| # | Venue | Peer-Reviewed | Safe for IEEE Paper |
+|---|---|---|---|
+| [1] | IEEE Transactions on Vehicular Technology | ✅ Yes | ✅ Yes |
+| [2] | Scientific Reports (Nature) | ✅ Yes | ✅ Yes |
+| [3] | CCF TPCI (Springer) | ✅ Yes | ✅ Yes |
+| [4] | ACM IMWUT | ✅ Yes | ✅ Yes |
+| [5] | arXiv preprint | ❌ No | ⚠️ Supporting only |
+| [6] | arXiv preprint | ❌ No | ⚠️ Supporting only |
+| [7] | GitHub (official docs) | ❌ No | ✅ Hardware reference |
+
+---
 *Report compiled from Claude Agent research session | March 2026*
 *Base system: ESP32 dual-node, 50 ft outdoor, ~10 pps, esp-csi GitHub firmware*
