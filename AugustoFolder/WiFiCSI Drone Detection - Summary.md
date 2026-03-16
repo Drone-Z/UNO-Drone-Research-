@@ -1,5 +1,4 @@
 # WiFi CSI Drone Detection — Research Summary
-**Student Z | University of New Orleans (UNO) | Graduate Course — Professor P**
 **March 2026**
 
 ---
