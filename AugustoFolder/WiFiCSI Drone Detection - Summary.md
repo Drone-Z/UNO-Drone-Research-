@@ -157,8 +157,8 @@ When ready, recommended progression:
 2. "Low-cost UAV detection via WiFi traffic analysis and machine learning," **Scientific Reports**, 2023. *(99.93% detection when drone streams video)*
 3. Zhao et al., "WiFi CSI-based device-free sensing: from Fresnel zone model to CSI-ratio model," **CCF TPCI**, Springer, 2021.
 4. "Towards a Dynamic Fresnel Zone Model to WiFi-based Human Activity Recognition," **ACM IMWUT**, 2023.
-5. WiMANS benchmark dataset, arXiv:2402.09430, 2024. *(1,000 pps standard)*
-6. "Optimal preprocessing of WiFi CSI for sensing applications," arXiv:2307.12126, 2023. *(gain correction reduces noise by 40%)*
+5. NOT PEER REVIEWED - WiMANS benchmark dataset, arXiv:2402.09430, 2024. *(1,000 pps standard)*
+6. NOT PEER REVIEWED "Optimal preprocessing of WiFi CSI for sensing applications," arXiv:2307.12126, 2023. *(gain correction reduces noise by 40%)*
 7. Espressif Systems, "ESP-CSI: Applications based on Wi-Fi CSI," GitHub, 2024.
 
 ---
