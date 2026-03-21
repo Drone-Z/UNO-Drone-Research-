@@ -2,7 +2,7 @@
 **Topic:** WiFi Channel State Information (CSI) for Drone vs. Human Classification  
 **System:** Two ESP32 devices, ~50 ft apart, 10 packets/second  
 **Base Code:** [espressif/esp-csi — get-started](https://github.com/espressif/esp-csi/tree/master/examples/get-started)  
-**Compiled:** March 2026 | Student Z | University of New Orleans (UNO)
+**Compiled:** March 2026 | Student Z 
 
 ---
 
