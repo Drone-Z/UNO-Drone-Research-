@@ -1,8 +1,5 @@
 # Low-Cost WiFi CSI-Based Drone Detection Using ESP32 Microcontrollers: A Preliminary Experimental Study
 
-**Student Z**
-Department of [Your Department], University of New Orleans (UNO)
-Professor P — Graduate Course, March 2026
 
 ---
 
@@ -24,7 +21,7 @@ CSI-based sensing has been extensively studied for human activity recognition (H
 
 This paper makes the following contributions:
 
-- We design and deploy a dual-ESP32 CSI sensing system following the open-source espressif/esp-csi framework and characterize its performance across multiple outdoor antenna separations.
+- We implement and deploy a dual-ESP32 CSI sensing system by following the open-source espressif/esp-csi get-started framework, extending the provided Python data collection and parsing scripts to support our experimental analysis needs.
 - We collect and analyze labeled CSI recordings comparing drone flight, human walking, and empty baseline conditions at 50 ft and 105 ft outdoor antenna separations.
 - We report a fitted outdoor path loss exponent of n = 2.59 from a 264 ft range characterization walk, consistent with near-line-of-sight outdoor propagation.
 - We identify the key hardware and signal processing limitations of low-cost ESP32 CSI for drone detection and provide a concrete roadmap for future improvement.
