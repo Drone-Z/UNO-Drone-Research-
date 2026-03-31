@@ -172,6 +172,8 @@ However, it is important to be clear about what these results do not yet demonst
 
 The core goal of this project is to move from the current state — where a human can look at a chart and see a difference — to a system that reads live CSI data and automatically determines whether a drone is present, where it is, and whether a person is also in the area. The following roadmap describes the steps required to get there, in order of priority.
 
+![RoadMap](AugustoFolder/Images/Drone_Detection_Roadmap.pdf)
+
 **Phase 1 — Fix the packet rate (immediate)**
 Change `CONFIG_SEND_FREQUENCY` in `csi_send/main/app_main.c` from 20 to 200 and reflash the transmitter ESP32. This single line change is the most impactful improvement possible and unlocks all subsequent steps. Without 150–200 pps the propeller Doppler signature remains invisible and no classifier can reliably separate drone from human.
 
