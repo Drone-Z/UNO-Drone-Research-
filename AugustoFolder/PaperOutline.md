@@ -26,11 +26,27 @@ This paper makes the following contributions:
 - We report a fitted outdoor path loss exponent of n = 2.59 from a 264 ft range characterization walk, consistent with near-line-of-sight outdoor propagation.
 - We identify the key hardware and signal processing limitations of low-cost ESP32 CSI for drone detection and provide a concrete roadmap for future improvement.
 
-The remainder of this paper is organized as follows. Section 2 reviews related work. Section 3 describes the system hardware and methodology. Section 4 presents experimental results. Section 5 discusses findings and limitations. Section 6 concludes the paper.
+The remainder of this paper is organized as follows. Section 2 outlines the research objectives. Section 3 reviews related work. Section 4 describes the system hardware and methodology. Section 5 presents experimental results. Section 6 discusses findings and limitations. Section 7 concludes the paper.
 
 ---
 
-## 2. Related Work
+## 2. Research Objectives
+
+This project is ongoing. The experiments presented in this paper represent the first phase of a larger research effort aimed at building a system that can autonomously detect and localize a drone from CSI readings alone — without any prior knowledge of whether a drone is present. The following seven questions define the full scope of the project and guide the experimental roadmap:
+
+1. **Can the system detect if a drone is present?** Given a live CSI stream, can a trained model automatically flag drone presence without a human interpreting the data?
+2. **Can the system distinguish a drone from a person?** Do drone and human CSI signatures differ enough for automated separation, and at what packet rate does this become reliable?
+3. **Can the system separate a drone and a person when both are present simultaneously?** This is the most operationally realistic and most challenging scenario.
+4. **Can the system estimate the distance of the drone from CSI data?** Can path loss modeling and phase-based Time-of-Flight analysis provide reliable range estimates from the CSI readings themselves?
+5. **Does antenna count affect Fresnel zone size or detection sensitivity?** How does upgrading from a single antenna pair to multiple pairs change what is detectable?
+6. **How do multiple antenna links improve detection?** Can overlapping Fresnel zones from multiple TX/RX pairs provide coverage area expansion, false-positive rejection, and rudimentary localization?
+7. **How can a 3D detection volume be constructed using CSI?** Can antenna pairs at different heights and angles create a volumetric detection zone that captures drones flying at altitude rather than only at ground level?
+
+Questions 1 and 2 are the immediate focus of the next experimental phase. Questions 3 through 7 represent progressive milestones toward a fully autonomous, spatially-aware drone detection system. The current paper addresses the groundwork — confirming that the hardware works, characterizing the signal environment, and establishing that observable CSI differences exist between conditions — that is necessary before any of the seven questions above can be answered with confidence.
+
+---
+
+## 3. Related Work
 
 Drone detection has been approached from several directions in the literature. Radar-based systems offer long detection ranges and high accuracy but require specialized hardware that is impractical for low-cost deployment [24]. Acoustic detection exploits the distinctive high-frequency sound produced by drone propellers but is highly sensitive to wind noise and environmental interference — a limitation directly relevant to our outdoor experiments [30]. Visual detection using cameras and computer vision is similarly constrained by lighting conditions and line-of-sight requirements.
 
@@ -42,7 +58,7 @@ Our work differs from the above primarily in hardware and scope. Rather than res
 
 ---
 
-## 3. System Hardware and Methodology
+## 4. System Hardware and Methodology
 
 ### 3.1 Hardware Setup
 
@@ -72,7 +88,7 @@ where the path loss exponent n was fitted from the 264 ft range test data using 
 
 ---
 
-## 4. Results
+## 5. Results
 
 All experiments were conducted outdoors in New Orleans, Louisiana during winter 2026. Environmental conditions included cold temperatures and moderate wind, particularly during the 105 ft tests. The drone used in all flight experiments was a lightweight consumer UAV weighing under 0.45 lbs (approximately 200g), which resulted in wind-affected flight behavior during gusty conditions. Packet rates across all recordings ranged from 6.4 to 9.5 packets per second.
 
@@ -132,7 +148,7 @@ At 105 ft the signal operates beyond the estimated dual-slope breakpoint distanc
 
 ---
 
-## 5. Discussion, Limitations, and Next Steps
+## 6. Discussion, Limitations, and Next Steps
 
 ### 5.1 Discussion
 
@@ -152,25 +168,34 @@ However, it is important to be clear about what these results do not yet demonst
 
 **Dataset size.** The current dataset is insufficient for machine learning. Published work recommends a minimum of 500–1,000 labeled windows per class for traditional ML and 2,000–10,000 for deep learning [16].
 
-### 5.3 Recommended Next Steps
+### 6.3 Roadmap Toward Autonomous Detection
 
-The following steps are recommended to continue this research in order of priority:
+The core goal of this project is to move from the current state — where a human can look at a chart and see a difference — to a system that reads live CSI data and automatically determines whether a drone is present, where it is, and whether a person is also in the area. The following roadmap describes the steps required to get there, in order of priority.
 
-1. **Increase packet rate.** Change `CONFIG_SEND_FREQUENCY` in `csi_send/main/app_main.c` from 20 to 200 and reflash the transmitter ESP32. This is a single line change that does not require modifying the receiver or collection script.
+**Phase 1 — Fix the packet rate (immediate)**
+Change `CONFIG_SEND_FREQUENCY` in `csi_send/main/app_main.c` from 20 to 200 and reflash the transmitter ESP32. This single line change is the most impactful improvement possible and unlocks all subsequent steps. Without 150–200 pps the propeller Doppler signature remains invisible and no classifier can reliably separate drone from human.
 
-2. **Collect labeled dataset at higher rate.** With 200 pps, re-collect at minimum: 10 minutes of clean baseline, 10 minutes of drone hovering at the Fresnel zone midpoint at multiple heights (1m, 2m, 3m), and 10 minutes of human walking. Use a phone stopwatch to log event timestamps during recording.
+**Phase 2 — Build a labeled dataset**
+With 200 pps, collect clean labeled recordings in three classes: empty environment, drone only, and person only. Use a phone stopwatch to note event start and end times during every recording. Target at minimum 20–30 minutes per class, collected across multiple days and conditions. This dataset is the foundation that every subsequent step depends on. Without it, no model can be trained or evaluated honestly.
 
-3. **Test with a heavier drone.** A drone in the DJI Mavic Mini class (~249g) would produce a stronger and more consistent CSI signature and is the platform most commonly used in published drone detection literature [1][2].
+**Phase 3 — Train a binary detector (Question 1)**
+Using the labeled dataset, train a sliding-window classifier that reads a 2-second window of CSI amplitude data and outputs a binary prediction: drone present or not. Start with a Random Forest on hand-crafted features (mean amplitude, standard deviation, activity score, PSD energy in the 50–400 Hz band). Evaluate with leave-one-session-out cross-validation to get an honest accuracy estimate. This is the first step toward a system that does not need a human to interpret the data.
 
-4. **Add a second antenna link.** Placing a second TX/RX pair perpendicular to the first would create a cross-shaped detection zone, significantly expanding coverage and enabling rudimentary localization of the drone within the sensing area.
+**Phase 4 — Add drone vs. human separation (Question 2)**
+Extend the classifier to three classes: empty, human, drone. The key discriminating feature at 200 pps will be the Doppler PSD — a person walking produces energy below 2 Hz while a drone propeller produces energy in the 83–233 Hz range. Visualize the PSD for each class first to confirm the separation is visible before training any model.
 
-5. **Implement a baseline ML classifier.** Once a sufficient labeled dataset is collected, a Random Forest classifier trained on per-window statistical features (mean amplitude, standard deviation, activity score, PSD peak frequency) provides a fast and interpretable starting point before moving to CNN-LSTM deep learning approaches [11].
+**Phase 5 — Distance estimation from CSI (Question 4)**
+Implement RSSI-based distance estimation using the fitted path loss model (n = 2.59). For finer resolution, implement phase-slope Time-of-Flight estimation from the CSI complex data. Validate against recordings at known distances. This allows the system to report not just "drone present" but approximately "drone is X meters away."
 
-6. **Indoor vs. outdoor comparison.** Collecting equivalent recordings indoors in a controlled environment would allow separation of environmental effects (wind, temperature) from the drone signature itself.
+**Phase 6 — Multiple antenna links (Questions 5 and 6)**
+Add a second TX/RX ESP32 pair placed perpendicular to the first, creating two overlapping Fresnel zones in a cross pattern. If both links detect a disturbance simultaneously, the intersection of their Fresnel zones narrows the possible drone location. If only one link is disturbed, the drone is likely in that link's zone but not the other. This is the first step toward spatial localization without GPS or radar.
+
+**Phase 7 — 3D coverage volume (Question 7)**
+Elevate one antenna pair to 2–3 meters above ground while keeping another at ground level. The two Fresnel zones will overlap in 3D space, creating a detection volume that catches drones flying at altitude rather than only near the ground. This is the most novel aspect of the project and represents a contribution not yet documented in the published ESP32 CSI literature.
 
 ---
 
-## 6. Conclusion
+## 7. Conclusion
 
 This paper presents a preliminary experimental investigation into WiFi CSI-based drone detection using two low-cost ESP32 microcontrollers following the Espressif esp-csi open-source framework. Across three outdoor test configurations at 50 ft and 105 ft antenna separations, we observed measurable and repeatable differences in CSI amplitude, RSSI, and activity between clean baseline, human walking, and drone flight conditions. A path loss exponent of n = 2.59 was fitted from a 264 ft outdoor range characterization, consistent with near-line-of-sight propagation. The primary limitation identified is the current ~10 packets per second collection rate, which prevents Doppler-based propeller frequency analysis. A clear and low-effort path to 150–200 packets per second exists via a single firmware parameter change. This work establishes a working experimental baseline and a concrete roadmap for progressing toward automated drone classification with commodity hardware.
 
