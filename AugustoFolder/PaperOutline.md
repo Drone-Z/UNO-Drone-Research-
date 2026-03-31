@@ -1,8 +1,5 @@
 # Low-Cost WiFi CSI-Based Drone Detection Using ESP32 Microcontrollers: A Preliminary Experimental Study
 
-**Student Z**
-Department of [Your Department], University of New Orleans (UNO)
-Professor P — Graduate Course, March 2026
 
 ---
 
