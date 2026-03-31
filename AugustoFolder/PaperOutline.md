@@ -131,3 +131,93 @@ The reduced packet rate in the random flight recording is itself a meaningful ob
 At 105 ft the signal operates beyond the estimated dual-slope breakpoint distance (~32 m), meaning path loss is higher than at 50 ft. All three recordings at 105 ft show lower RSSI means than the 50 ft tests, consistent with this expectation. The Fresnel zone radius at the 105 ft midpoint is approximately 100 cm, which is larger than the drone's physical span, meaning the drone does not fully occlude the first Fresnel zone but does disturb it as it passes through.
 
 ---
+
+## 5. Discussion, Limitations, and Next Steps
+
+### 5.1 Discussion
+
+The results across all three test configurations consistently demonstrate that a low-cost dual-ESP32 CSI system is capable of producing measurable and repeatable differences in signal characteristics between baseline, human presence, and drone presence conditions. The fitted path loss exponent of n = 2.59 validates the outdoor propagation model and provides a calibrated foundation for future distance estimation. The directional difference between human and drone amplitude signatures — human walking causing brief isolated dips while drone flight causes continuous lower-level disturbance — is a promising basis for future classification work.
+
+However, it is important to be clear about what these results do not yet demonstrate. No automated classifier has been trained or evaluated. The differences observed between conditions are subtle at 10 packets per second and would not support a reliable real-time detector in their current form. The lightweight drone used in testing produces a weaker CSI signature than heavier consumer drones reported in the literature. Wind conditions introduced variability that cannot be fully separated from drone-induced effects in the current dataset.
+
+### 5.2 Current Limitations
+
+**Packet rate.** The single most significant limitation is the ~10 packets per second collection rate. The Blade Passing Frequency of even a lightweight drone propeller (83–133 Hz) is more than an order of magnitude above the Nyquist frequency of the current sampling rate (~4.7 Hz). Published research using Intel 5300 hardware operates at 100–1,000 packets per second [16]. Increasing the ESP32 transmitter send frequency from the default 20 Hz to 200 Hz via a one-line firmware change is expected to raise the observed rate to approximately 150–200 packets per second, which would make envelope-level Doppler analysis feasible [14].
+
+**Single antenna.** The standard ESP32 board has one antenna, providing only 1×1 MIMO CSI. Research-grade systems typically use three or more antennas, providing richer spatial information for localization and classification [3].
+
+**No phase analysis.** The two ESP32 nodes do not share a reference oscillator, meaning raw phase measurements are not comparable across packets without sanitization. This study used amplitude only.
+
+**Drone weight.** The drone used weighs under 0.45 lbs. Heavier consumer drones such as the DJI Mavic series produce stronger CSI perturbations due to larger physical cross-section and more powerful motors [30].
+
+**Dataset size.** The current dataset is insufficient for machine learning. Published work recommends a minimum of 500–1,000 labeled windows per class for traditional ML and 2,000–10,000 for deep learning [16].
+
+### 5.3 Recommended Next Steps
+
+The following steps are recommended to continue this research in order of priority:
+
+1. **Increase packet rate.** Change `CONFIG_SEND_FREQUENCY` in `csi_send/main/app_main.c` from 20 to 200 and reflash the transmitter ESP32. This is a single line change that does not require modifying the receiver or collection script.
+
+2. **Collect labeled dataset at higher rate.** With 200 pps, re-collect at minimum: 10 minutes of clean baseline, 10 minutes of drone hovering at the Fresnel zone midpoint at multiple heights (1m, 2m, 3m), and 10 minutes of human walking. Use a phone stopwatch to log event timestamps during recording.
+
+3. **Test with a heavier drone.** A drone in the DJI Mavic Mini class (~249g) would produce a stronger and more consistent CSI signature and is the platform most commonly used in published drone detection literature [1][2].
+
+4. **Add a second antenna link.** Placing a second TX/RX pair perpendicular to the first would create a cross-shaped detection zone, significantly expanding coverage and enabling rudimentary localization of the drone within the sensing area.
+
+5. **Implement a baseline ML classifier.** Once a sufficient labeled dataset is collected, a Random Forest classifier trained on per-window statistical features (mean amplitude, standard deviation, activity score, PSD peak frequency) provides a fast and interpretable starting point before moving to CNN-LSTM deep learning approaches [11].
+
+6. **Indoor vs. outdoor comparison.** Collecting equivalent recordings indoors in a controlled environment would allow separation of environmental effects (wind, temperature) from the drone signature itself.
+
+---
+
+## 6. Conclusion
+
+This paper presents a preliminary experimental investigation into WiFi CSI-based drone detection using two low-cost ESP32 microcontrollers following the Espressif esp-csi open-source framework. Across three outdoor test configurations at 50 ft and 105 ft antenna separations, we observed measurable and repeatable differences in CSI amplitude, RSSI, and activity between clean baseline, human walking, and drone flight conditions. A path loss exponent of n = 2.59 was fitted from a 264 ft outdoor range characterization, consistent with near-line-of-sight propagation. The primary limitation identified is the current ~10 packets per second collection rate, which prevents Doppler-based propeller frequency analysis. A clear and low-effort path to 150–200 packets per second exists via a single firmware parameter change. This work establishes a working experimental baseline and a concrete roadmap for progressing toward automated drone classification with commodity hardware.
+
+---
+
+## References
+
+[1] I. Bisio, C. Garibotto, F. Lavagetto, A. Sciarrone, and S. Zappatore, "Blind Detection: Advanced Techniques for WiFi-Based Drone Surveillance," *IEEE Transactions on Vehicular Technology*, vol. 68, no. 1, pp. 938–946, Jan. 2019. DOI: 10.1109/TVT.2018.2884767
+
+[2] L. Bi, Z. Xu, and L. Yang, "Low-cost UAV detection via WiFi traffic analysis and machine learning," *Scientific Reports*, vol. 13, article 20892, Nov. 2023. DOI: 10.1038/s41598-023-47453-6
+
+[3] E. de Armas, G. Diaz, I. Sobron, et al., "EHUNAM, a WiFi CSI-based dataset for human and machine sensing," *Scientific Data*, vol. 12, article 1950, Dec. 2025. DOI: 10.1038/s41597-025-06238-4
+
+[4] J. Liu et al., "Towards a Dynamic Fresnel Zone Model to WiFi-based Human Activity Recognition," *Proc. ACM IMWUT*, vol. 7, no. 2, article 65, Jun. 2023. DOI: 10.1145/3596258
+
+[5] L. Morge-Rollet, D. Le Jeune, F. Le Roy, C. Canaff, and R. Gautier, "Drone Detection and Classification Using Physical-Layer Protocol Statistical Fingerprint," *Sensors*, vol. 22, no. 17, article 6701, Sep. 2022. DOI: 10.3390/s22176701
+
+[6] M. Di Seglio, F. Filippini, C. Bongioanni, and F. Colone, "Comparing reference-free WiFi radar sensing approaches for monitoring people and drones," *IET Radar, Sonar & Navigation*, vol. 18, no. 1, pp. 107–124, Jan. 2024. DOI: 10.1049/rsn2.12506
+
+[7] J. Niu et al., "Placement Matters: Understanding the Effects of Device Placement for WiFi Sensing," *Proc. ACM IMWUT*, vol. 6, no. 1, 2022. DOI: 10.1145/3517237
+
+[8] "Wi-Fi Sensing Techniques for Human Activity Recognition: Brief Survey, Potential Challenges, and Research Directions," *ACM Computing Surveys*, 2024. DOI: 10.1145/3705893
+
+[9] F. Restuccia et al., "WiFi Sensing on the Edge: Signal Processing Techniques and Challenges for Real-World Systems," *IEEE Communications Surveys & Tutorials*, 2022.
+
+[10] "Optimal preprocessing of WiFi CSI for sensing applications," *arXiv preprint*, arXiv:2307.12126, 2023. *(Preprint — not peer reviewed)*
+
+[11] "Motion Pattern Recognition via CNN-LSTM-Attention Model Using Array-Based Wi-Fi CSI Sensors," *Electronics*, vol. 14, no. 8, article 1594, 2025. DOI: 10.3390/electronics14081594
+
+[12] S. M. Hernandez, "ESP32-CSI-Tool: Extract Channel State Information from WiFi-enabled ESP32 Microcontroller," GitHub, 2020. https://github.com/StevenMHernandez/ESP32-CSI-Tool
+
+[13] "Wi-ESP: A Tool for CSI-based Device-Free Wi-Fi Sensing," *Journal of Computational Design and Engineering*, vol. 7, no. 5, pp. 644–656, 2020. DOI: 10.1093/jcde/qwaa048
+
+[14] Espressif Systems, "ESP-CSI: Applications based on Wi-Fi CSI," GitHub, 2024. https://github.com/espressif/esp-csi
+
+[15] Espressif Systems, "Wi-Fi Driver — ESP32," ESP-IDF Programming Guide v5.5.3, 2024. https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/wifi.html
+
+[16] "WiMANS: A Benchmark Dataset for WiFi-based Multi-user Activity Sensing," *arXiv preprint*, arXiv:2402.09430, 2024. *(Preprint — not peer reviewed)*
+
+[17] D. Wu, Y. Zeng, F. Zhang et al., "WiFi CSI-based device-free sensing: from Fresnel zone model to CSI-ratio model," *CCF Transactions on Pervasive Computing and Interaction*, vol. 4, pp. 88–102, 2022. DOI: 10.1007/s42486-021-00077-z
+
+[18] "A Survey on Detection, Classification, and Tracking of UAVs using Radar and Communications Systems," *arXiv preprint*, arXiv:2402.05909, 2024. *(Preprint — not peer reviewed)*
+
+[19] "Radar micro-Doppler signatures of drones and birds at K-band and W-band," *Scientific Reports*, 2018. DOI: 10.1038/s41598-018-35880-9
+
+[20] "Evaluating Self-Supervised Learning for WiFi CSI-Based Human Activity Recognition," *ACM Transactions on Sensor Networks*, 2025. DOI: 10.1145/3715130
+
+---
+
+*This paper represents preliminary experimental work conducted as part of a graduate research course. All data, analysis scripts, and charts are available in the project repository.*
