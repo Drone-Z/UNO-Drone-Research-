@@ -1,5 +1,8 @@
 # Low-Cost WiFi CSI-Based Drone Detection Using ESP32 Microcontrollers: A Preliminary Experimental Study
 
+**Student Z**
+Department of [Your Department], University of New Orleans (UNO)
+Professor P — Graduate Course, March 2026
 
 ---
 
@@ -26,6 +29,108 @@ This paper makes the following contributions:
 - We report a fitted outdoor path loss exponent of n = 2.59 from a 264 ft range characterization walk, consistent with near-line-of-sight outdoor propagation.
 - We identify the key hardware and signal processing limitations of low-cost ESP32 CSI for drone detection and provide a concrete roadmap for future improvement.
 
-The remainder of this paper is organized as follows. Section 2 reviews related work. Section 3 describes the system hardware and firmware. Section 4 details the experimental methodology. Section 5 presents experimental results. Section 6 discusses findings and limitations. Section 7 outlines future work and Section 8 concludes the paper.
+The remainder of this paper is organized as follows. Section 2 reviews related work. Section 3 describes the system hardware and methodology. Section 4 presents experimental results. Section 5 discusses findings and limitations. Section 6 concludes the paper.
+
+---
+
+## 2. Related Work
+
+Drone detection has been approached from several directions in the literature. Radar-based systems offer long detection ranges and high accuracy but require specialized hardware that is impractical for low-cost deployment [24]. Acoustic detection exploits the distinctive high-frequency sound produced by drone propellers but is highly sensitive to wind noise and environmental interference — a limitation directly relevant to our outdoor experiments [30]. Visual detection using cameras and computer vision is similarly constrained by lighting conditions and line-of-sight requirements.
+
+RF-based approaches have gained significant traction due to their passive nature and relatively low cost. Bisio et al. demonstrated that statistical fingerprinting of a drone's WiFi traffic could achieve a peak true positive rate of 96% [1]. Jian et al. extended this approach using machine learning on WiFi packet header features, achieving 99.93% detection probability for video-streaming UAVs using only four statistical features extracted from captured traffic [2]. Morge-Rollet et al. proposed physical-layer protocol statistical fingerprinting across six drone types using a cubic SVM classifier [5]. While these results are impressive, all three approaches rely on analyzing the drone's own WiFi transmissions, making them ineffective against non-transmitting or autonomous drones.
+
+The use of CSI as a passive, device-free sensing modality addresses this limitation directly. Wu et al. established the Fresnel zone model as the theoretical foundation for understanding which objects are detectable within a given WiFi link geometry [18]. Their work demonstrates that over 70% of signal energy travels through the first Fresnel zone, meaning any object of comparable size to the zone radius will produce measurable CSI perturbations. Di Seglio et al. applied a reference-free WiFi passive radar approach to detect both humans and drones using 2.4 GHz and 5 GHz transmissions, validating that WiFi signals can serve as a sensing medium for drone detection without requiring the drone to cooperate [2]. Liu et al. further extended the Fresnel zone model to dynamic human activity recognition, demonstrating that zone boundary crossings produce characteristic sinusoidal amplitude signatures [4].
+
+Our work differs from the above primarily in hardware and scope. Rather than research-grade platforms such as the Intel 5300 or Atheros AR9300, we use the ESP32 microcontroller — a commodity device available for approximately $10 — making our setup accessible to researchers and students without specialized laboratory equipment. All experiments were conducted outdoors under naturally occurring environmental conditions, including wind and cold temperatures, which reflects the practical reality of testing with available resources rather than a controlled choice. This work is explicitly preliminary in nature, focusing on characterizing what CSI signatures are observable at low packet rates before pursuing higher-rate collection and automated classification in future work.
+
+---
+
+## 3. System Hardware and Methodology
+
+### 3.1 Hardware Setup
+
+The sensing system consists of two ESP32 development boards — one configured as a transmitter and one as a receiver — following the get-started example provided by the Espressif esp-csi open-source library [14]. The transmitter runs the `csi_send` firmware, which broadcasts ESP-NOW packets at a configurable rate. The receiver runs the `csi_recv` firmware, which captures incoming packets and extracts raw CSI data from each one via the `esp_wifi_set_csi_rx_cb()` callback API [15]. Both boards operate on the 2.4 GHz band using HT20 mode (20 MHz channel bandwidth) on WiFi channel 11. No modifications were made to the ESP32 firmware itself. Both nodes were placed at ground level, elevated slightly using improvised supports to keep the antennas upright and oriented vertically. No specialized mounting equipment was used, consistent with the low-cost and accessible nature of this experimental setup.
+
+Each received packet yields a CSI data array of 384 integers representing interleaved imaginary and real components for 192 subcarriers across the LLTF, HT-LTF, and STBC-HT-LTF training fields. Complex amplitude per subcarrier k is computed as:
+
+```
+|H_k| = sqrt(real_k^2 + imag_k^2)
+```
+
+The receiver streams CSV-formatted CSI records over USB serial at 921,600 baud to a host laptop running the `csi_data_read_parse.py` collection script, which was extended to save timestamped recordings to CSV files for offline analysis [14].
+
+### 3.2 Data Collection Protocol
+
+All experiments were conducted outdoors with the two ESP32 nodes placed at fixed distances on flat ground with clear line-of-sight between them. Three antenna separations were tested: 264 ft for the range characterization, 50 ft for the human vs. drone comparison, and 105 ft for the three-class experiment. Recordings were labeled by experiment condition at the time of collection. Each recording session was started fresh to avoid timestamp drift between files. The transmitter send frequency was left at the default 20 Hz firmware setting, yielding an observed packet rate of approximately 8.7 to 9.5 packets per second at the receiver after accounting for packet loss.
+
+### 3.3 Signal Processing
+
+Offline analysis was performed in Python. For each recording, the CSI amplitude matrix of shape (packets × 192 subcarriers) was computed from the raw I/Q data. Three primary signals were derived for analysis: mean amplitude per packet (mean across all 192 subcarriers), activity signal (standard deviation across all 192 subcarriers per packet), and RSSI as reported directly by the ESP32 receiver. A Savitzky-Golay filter (window = 21 samples, polynomial order = 3) was applied to smooth all time-series signals for visualization. No gain correction or phase sanitization was applied in this preliminary study, as the ESP32 boards used do not report AGC gain fields in the standard CSV format. Path loss modeling followed the log-distance path loss model:
+
+```
+PL(d) = PL(d0) + 10 * n * log10(d/d0)
+```
+
+where the path loss exponent n was fitted from the 264 ft range test data using linear regression of RSSI against log-distance.
+
+---
+
+## 4. Results
+
+All experiments were conducted outdoors in New Orleans, Louisiana during winter 2026. Environmental conditions included cold temperatures and moderate wind, particularly during the 105 ft tests. The drone used in all flight experiments was a lightweight consumer UAV weighing under 0.45 lbs (approximately 200g), which resulted in wind-affected flight behavior during gusty conditions. Packet rates across all recordings ranged from 6.4 to 9.5 packets per second.
+
+### 4.1 Range Characterization — 264 ft Outdoor Walk
+
+To characterize the antenna range limit and fit the path loss model for our outdoor environment, a 264 ft (80.5 m) walk was performed with one experimenter carrying the receiver ESP32 away from the stationary transmitter while recording continuously. The recording yielded 1,777 packets over 169 seconds at 10.5 packets per second.
+
+*[Figure 1 — 264 ft Range Test Analysis]*
+
+As shown in Figure 1, RSSI decreased smoothly from approximately -42 dBm at the start of the walk to -83 dBm at 264 ft, a total signal drop of 40.9 dB. Fitting the log-distance path loss model to the measured RSSI versus distance data yielded a path loss exponent of **n = 2.59**, slightly above the free-space value of 2.0 and consistent with outdoor near-line-of-sight propagation with minor ground reflection and atmospheric effects. The dual-slope path loss model predicts a breakpoint distance of approximately 32 m (~105 ft) for antennas at ground level at 2.4 GHz, beyond which the effective path loss exponent rises. This is consistent with the slightly elevated n observed in our fit. Signal quality remained usable (above -75 dBm) up to approximately 120 ft, began degrading meaningfully beyond that point, and had not yet reached the hard antenna limit at 264 ft, suggesting reliable operation is achievable up to approximately 150 ft under similar conditions.
+
+### 4.2 50 ft Test — Human Walking vs. Drone Flight
+
+Two separate recordings were collected at 50 ft (15.2 m) antenna separation under winter outdoor conditions. The first recording captured a human experimenter walking through the Fresnel zone in a snake pattern between the two stationary antennas, passing through the signal corridor twice. No drone was present. The second recording captured a lightweight drone flying between the antennas with no humans present. Key statistics are summarized in Table 1.
+
+| Metric | Walk Only | Drone Flight |
+|---|---|---|
+| Packets | 936 | 1,176 |
+| Duration | 100s | 126s |
+| Packet rate | 9.4 pps | 9.4 pps |
+| RSSI mean | -75.6 dBm | -76.6 dBm |
+| Mean amplitude | 25.98 | 24.30 |
+| Activity (std) | 20.51 | 19.46 |
+
+*Table 1 — 50 ft test summary statistics*
+
+*[Figure 2 — 50 ft Walk vs. Drone Comparison]*
+
+Two observations are notable from Figure 2. First, the walk-only recording shows two distinct amplitude dips corresponding to the two passes through the Fresnel zone, consistent with the human body absorbing and scattering the WiFi signal each time it crossed the signal corridor. Second, the drone recording shows a persistently lower and more variable amplitude throughout the recording, with no clean isolated dip events. The mean amplitude for the drone recording (24.30) was lower than the walk-only recording (25.98), a difference of 1.68 amplitude units. The RSSI difference between the two recordings was only 1.0 dBm, suggesting that RSSI alone is insufficient to distinguish the two conditions at this separation.
+
+Importantly, the two event types produce signatures with different temporal structure — the human walking produces brief, isolated perturbation events while the drone produces continuous low-level channel disturbance. At 9.4 packets per second the Blade Passing Frequency of the drone's propellers (approximately 83–133 Hz for a lightweight drone at hover) is entirely below the Nyquist frequency of the sampling rate (~4.7 Hz), meaning the propeller rotation signature is not resolvable in these recordings.
+
+### 4.3 105 ft Test — Three-Class Experiment
+
+Three recordings were collected at 105 ft (32 m) antenna separation: a clean baseline with no drone and no people present, a controlled drone flight through the Fresnel zone, and a random free-flight drone recording. Wind conditions were moderate throughout. Key statistics are summarized in Table 2.
+
+| Metric | Baseline | Fresnel Zone | Random Flight |
+|---|---|---|---|
+| Packets | 1,326 | 1,461 | 1,074 |
+| Duration | 153s | 153s | 168s |
+| Packet rate | 8.7 pps | 9.5 pps | 6.4 pps |
+| RSSI mean | -79.2 dBm | -80.8 dBm | -83.4 dBm |
+| Mean amplitude | 22.14 | 21.83 | 20.67 |
+| Activity (std) | 17.82 | 18.24 | 18.91 |
+
+*Table 2 — 105 ft test summary statistics*
+
+*[Figure 3 — 105 ft CSI Amplitude (All Three Recordings)]*
+
+*[Figure 4 — 105 ft Three-Way Overlay Comparison]*
+
+Several findings emerge from Figures 3 and 4. The baseline recording shows a stable, smooth amplitude signal throughout its duration, confirming that the outdoor environment at 105 ft produces a consistent background channel with minimal self-disturbance. The Fresnel zone recording shows identifiable amplitude disturbance events corresponding to the drone passing through the signal corridor. The random flight recording is the most visually distinct from the baseline — it shows the lowest mean RSSI (-83.4 dBm), lowest mean amplitude (20.67), highest activity variance (18.91), and the lowest packet rate (6.4 pps).
+
+The reduced packet rate in the random flight recording is itself a meaningful observation. Wind-driven erratic flight of the lightweight drone near the antenna link appears to have increased channel instability sufficiently to cause higher packet loss, which is reflected in the lower observed rate. This suggests that under windy conditions, packet rate variability may serve as an indirect indicator of drone presence, though this hypothesis requires further investigation with controlled conditions.
+
+At 105 ft the signal operates beyond the estimated dual-slope breakpoint distance (~32 m), meaning path loss is higher than at 50 ft. All three recordings at 105 ft show lower RSSI means than the 50 ft tests, consistent with this expectation. The Fresnel zone radius at the 105 ft midpoint is approximately 100 cm, which is larger than the drone's physical span, meaning the drone does not fully occlude the first Fresnel zone but does disturb it as it passes through.
 
 ---
