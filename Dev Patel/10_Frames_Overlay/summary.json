@@ -1,0 +1,13 @@
+{
+  "bag": "/home/Devpatel/rosbag_extraction/2026-03-26-17-00-56-4000.bag",
+  "image_topic": "/camera_fr/image_raw",
+  "lidar_topic": "/points_raw",
+  "camera_info_topic": "/camera_fr/camera_info",
+  "requested_frame_start": 0,
+  "requested_frame_end": 10,
+  "requested_max_selected": 10,
+  "processed_count": 10,
+  "csv_camera_selection": "/home/Devpatel/rosbag_extraction/output/batch_2026_03_26_170056_4000_f0_10_v4_tuned/camera_selection.csv",
+  "csv_camera_lidar_matches": "/home/Devpatel/rosbag_extraction/output/batch_2026_03_26_170056_4000_f0_10_v4_tuned/camera_lidar_matches.csv",
+  "output_dir": "/home/Devpatel/rosbag_extraction/output/batch_2026_03_26_170056_4000_f0_10_v4_tuned"
+}
